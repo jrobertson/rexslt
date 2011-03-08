@@ -1,3 +1,7 @@
+#!/usr/bin/env ruby
+
+# file: rexslt.rb
+ 
 require 'rexml/document'
 
 class Rexslt
@@ -7,8 +11,6 @@ class Rexslt
 
     doc_xml = Document.new(xml)
     doc_xsl = Document.new(xsl)
-
-    @xsl_methods = [:apply_templates, :value_of]
 
     # fetch the templates
     @templates = XPath.match(doc_xsl.root, 'xsl:template').inject({}) do |r,x|
@@ -22,9 +24,9 @@ class Rexslt
 
   end
 
-  def to_s() @a.flatten.join end
-
-  def to_a() @a end
+  def to_s()
+    @a.flatten.join    
+  end
 
   alias text to_s
 
@@ -32,16 +34,10 @@ class Rexslt
 
   def read_template(template_node, doc_node)
 
-    XPath.match(template_node, '*').map do |x|      
-
+    XPath.match(template_node, '*').map do |x|
       method_name = x.name.gsub(/-/,'_').to_sym
-
-      if @xsl_methods.include? method_name then
-        field = x.attribute('select').value.to_s if x.attribute('select')
-        method(method_name).call(doc_node, field)
-      else
-        x.to_s
-      end
+      field = x.attribute('select').value.to_s
+      method(method_name).call(doc_node, field)
     end
   end
 
