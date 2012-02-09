@@ -1,4 +1,9 @@
-require 'rexml/document'
+#!/usr/bin/env ruby
+
+# file: rexslt.rb
+
+require 'rexle'
+require 'rxfhelper'
 
 
 class Rexle::Element
