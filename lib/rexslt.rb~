@@ -34,7 +34,7 @@ class Rexslt
 
   def initialize(xsl, xml)    
     super()
-    xslt_transform *[xsl, xml].map{|x| RXFHelper.new(x).to_s}
+    xslt_transform *[xsl, xml].map{|x| RXFHelper.read(x)}
   end
   
   def to_s() 
