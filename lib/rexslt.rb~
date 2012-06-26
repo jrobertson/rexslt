@@ -37,8 +37,8 @@ class Rexslt
     xslt_transform *[xsl, xml].map{|x| RXFHelper.read(x).first}
   end
   
-  def to_s() 
-    @doc.to_s[/<root>(.*)<\/root>/m,1]
+  def to_s(options={}) 
+    @doc.to_s(options)[/<root>(.*)<\/root>/m,1]
   end
              
   def to_doc(); @doc; end
@@ -51,7 +51,6 @@ class Rexslt
     
     field = x.attributes[:select]
     node = element.element field
-
     return unless node
 
     keypath = node.to_xpath :no_cond
@@ -60,9 +59,13 @@ class Rexslt
     # check for a nest <xsl:sort element
        
     sort = x.element('xsl:sort')
+    
     if sort then
-      orderx = sort.attributes[:order]
+
+      orderx = sort.attributes[:order] || 'ascending'
       sort_field = sort.attributes[:select]
+      data_type = sort.attributes[:'data-type'] || 'text'
+
     end
 
     raw_template = @templates.to_a.find do |raw_item, template|
@@ -86,7 +89,22 @@ class Rexslt
       template_xpath, template = raw_template
       
       if sort_field then
-        matched_node.sort_by{|x| x.element(sort_field).text}.each do |child_node|       
+        sort_order = lambda do |x| 
+          r = x.element(sort_field); 
+
+          if r.respond_to?(:text) then 
+            orderx == 'ascending' ? r.text : -r.text
+          else
+            
+            if orderx == 'ascending' then
+              data_type == 'text' ? r : r.to_i
+            else
+              data_type == 'text' ? -r : -r.to_i
+            end
+          end
+        end
+
+        matched_node.sort_by(&sort_order).each do |child_node|  
           read_node template, child_node, doc_element, indent
         end
       else
@@ -98,9 +116,18 @@ class Rexslt
 
   end
   
-  def match?(keypath, path)
-    x = keypath.split('/').reverse.take path.length
-    x == path.reverse
+  def match?(raw_keypath, raw_path)
+    return false if raw_path == ['*']
+    keypath = raw_keypath.split('/').reverse.take raw_path.length    
+    path = raw_path.reverse
+    r = path.map.with_index.select{|x,i|x == '*'}.map(&:last)
+
+    r.each do |n|  
+      # get the relative value from path
+      path[n] = keypath[n]
+    end    
+    
+    keypath == path    
   end
   
 
@@ -146,7 +173,6 @@ class Rexslt
   def xsl_element(element, x, doc_element, indent)
 
     indent_before(element, x, doc_element, indent + 1) if @indent == true
-
     name = x.attributes[:name]
     new_element = Rexle::Element.new(name).add_text(x.text)
     doc_element.add new_element
@@ -246,19 +272,19 @@ class Rexslt
   end
   
   def read_raw_element(element, x, doc_element, indent)
-    
+
     method_name = x.name.gsub(/[:-]/,'_').to_sym
-    
+
     if @xsl_methods.include? method_name then
       method(method_name).call(element, x, doc_element, indent)
     else
       
-      previous_indent = indent        
+      previous_indent = indent      
       la = x.name
 
       if x.children.length > 0 then           
 
-        new_indent = indent + 1        
+        new_indent = indent + 1        if @indent == true
         new_element = x.clone
 
         new_element2 = new_element.deep_clone
@@ -276,6 +302,8 @@ class Rexslt
         indent_before(element, x, doc_element, new_indent) if @indent == true
 
         #jr070412 new_element.text = new_element.text.strip if @indent == false
+
+        new_element2.text = new_element2.text.strip
         doc_element.add new_element2
 
         read_node(x, element, new_element2, new_indent)        
@@ -297,7 +325,7 @@ class Rexslt
       end
     end    
   end
-
+  
   def xsl_text(element, x, doc_element, indent)
     val = @indent == true ? padding(doc_element, indent, x) : ''
     val += x.text
@@ -305,7 +333,6 @@ class Rexslt
   end
   
   def xsl_value_of(element, x, doc_element, indent)
-
     field = x.attributes[:select]
     o = field == '.' ? element.text : element.text(field)   
     doc_element.add_element o.to_s
@@ -348,13 +375,12 @@ class Rexslt
 
     # using the 1st template    
     xpath = String.new @templates.to_a[0][0] 
-
+    
     if doc_xml.root.name == xpath then
       read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent) 
     else
       # use this template
-      node = doc_xml.root.element(xpath)      
-      read_node(@templates.to_a[0][-1], doc_xml, node, indent) 
+      read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent) 
     end
     
   end

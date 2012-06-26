@@ -47,7 +47,7 @@ class Rexslt
 
   private
 
-  def xsl_apply_templates(element, x, doc_element, indent)
+  def xsl_apply_templates(element, x, doc_element, indent, i)
     
     field = x.attributes[:select]
     node = element.element field
@@ -69,6 +69,7 @@ class Rexslt
     end
 
     raw_template = @templates.to_a.find do |raw_item, template|
+
 
       item = raw_item.split('/')
 
@@ -104,12 +105,12 @@ class Rexslt
           end
         end
 
-        matched_node.sort_by(&sort_order).each do |child_node|  
-          read_node template, child_node, doc_element, indent
+        matched_node.sort_by(&sort_order).each_with_index do |child_node,i| 
+          read_node template, child_node, doc_element, indent, i+1
         end
       else
-        matched_node.each do |child_node|      
-          read_node template, child_node, doc_element, indent
+        matched_node.each_with_index do |child_node,i|      
+          read_node template, child_node, doc_element, indent, i+1
         end        
       end
     end
@@ -130,15 +131,18 @@ class Rexslt
     keypath == path    
   end
   
+  def position()
+    @position ||= 0
+  end
 
-  def xsl_attribute(element, x, doc_element, indent)
+  def xsl_attribute(element, x, doc_element, indent, i)
     
     name = x.attributes[:name]
     value = x.text
     doc_element.add_attribute name, value
   end
 
-  def xsl_choose(element, x, doc_element, indent)
+  def xsl_choose(element, x, doc_element, indent, i)
 
     #get the when clause    
 
@@ -148,7 +152,7 @@ class Rexslt
       node = element.element condition
             
       if node and node == true      
-        read_node(xsl_node, element, doc_element, indent)      
+        read_node(xsl_node, element, doc_element, indent, i)      
         true
       else
         false
@@ -162,7 +166,7 @@ class Rexslt
 
   end
   
-  def xsl_copy_of(element, x, doc_element, indent)
+  def xsl_copy_of(element, x, doc_element, indent, i)
 
     indent_element(element, x, doc_element, indent, indent - 1) do
       doc_element.add element 
@@ -170,17 +174,17 @@ class Rexslt
 
   end
   
-  def xsl_element(element, x, doc_element, indent)
+  def xsl_element(element, x, doc_element, indent, i)
 
-    indent_before(element, x, doc_element, indent + 1) if @indent == true
+    indent_before(element, x, doc_element, indent + 1, i) if @indent == true
     name = x.attributes[:name]
     new_element = Rexle::Element.new(name).add_text(x.text)
     doc_element.add new_element
-    read_node(x, element, new_element, indent)
-    indent_after(element, x, doc_element, indent) if @indent == true
+    read_node(x, element, new_element, indent, i)
+    indent_after(element, x, doc_element, indent, i) if @indent == true
   end
   
-  def xsl_for_each(element, x, doc_element, indent)
+  def xsl_for_each(element, x, doc_element, indent, i)
     
     xpath = x.attributes[:select]
     nodes = element.match xpath
@@ -208,18 +212,21 @@ class Rexslt
       nodes.reverse! if order.downcase == 'descending'
     end
      
-    nodes.each {|node| read_node(x, node, doc_element, indent)}
+    nodes.each {|node| read_node(x, node, doc_element, indent, i)}
     
   end
     
-  def xsl_if(element, x, doc_element, indent)
+  def xsl_if(element, x, doc_element, indent, i=0)
     
-    condition = x.attributes[:test]
-    node = element.element, condition
-    read_node(x, element, doc_element, indent) if node and node == true
+    condition = x.attributes[:test].gsub('position()',i.to_s).gsub('&lt;','<').gsub('&gt;','>')
+    result  = eval(condition)
+    
+    if result then
+      read_node(x, element, doc_element, indent)
+    end
   end
 
-  def indent_before(element, x, doc_element, indent)
+  def indent_before(element, x, doc_element, indent, i)
     text = ''
     unless doc_element.texts.empty? and doc_element.texts.last.nil? then      
       text = '  ' * (indent - 1)  unless doc_element.texts.last.to_s[/^\n\s/m]
@@ -239,9 +246,9 @@ class Rexslt
   end
   
   def indent_element(element, x, doc_element, indent, previous_indent)    
-    indent_before(element, x, doc_element, indent) if @indent == true    
+    indent_before(element, x, doc_element, indent, i) if @indent == true    
     yield
-    indent_after(element, x, doc_element, previous_indent) if @indent == true
+    indent_after(element, x, doc_element, previous_indent, i) if @indent == true
   end  
 
   def padding(element,raw_indent, x)    
@@ -252,18 +259,18 @@ class Rexslt
     x.to_s.strip.length > 0 ? '  ' * indent : ''        
   end
   
-  def read_node(template_node, element, doc_element, indent)
+  def read_node(template_node, element, doc_element, indent, i=0)
 
     procs = {"Rexle::Element" => :read_raw_element, "String" => :read_raw_text}        
 
     template_node.each do |x|
-      method(procs[x.class.to_s]).call(element, x, doc_element, indent)
+      method(procs[x.class.to_s]).call(element, x, doc_element, indent, i)
     end
   end
 
   # element: xml source element, x: xsl element, doc_element: current destination xml element
   #
-  def read_raw_text(element, x, doc_element, raw_indent)
+  def read_raw_text(element, x, doc_element, raw_indent, i)
     #val = @indent == true ? padding(doc_element, raw_indent, x) : ''
     if x.to_s.strip.length > 0 then
       val = x.to_s #
@@ -271,12 +278,12 @@ class Rexslt
     end
   end
   
-  def read_raw_element(element, x, doc_element, indent)
+  def read_raw_element(element, x, doc_element, indent, i)
 
     method_name = x.name.gsub(/[:-]/,'_').to_sym
 
     if @xsl_methods.include? method_name then
-      method(method_name).call(element, x, doc_element, indent)
+      method(method_name).call(element, x, doc_element, indent, i)
     else
       
       previous_indent = indent      
@@ -299,40 +306,40 @@ class Rexslt
           end  
         end
 
-        indent_before(element, x, doc_element, new_indent) if @indent == true
+        indent_before(element, x, doc_element, new_indent, i) if @indent == true
 
         #jr070412 new_element.text = new_element.text.strip if @indent == false
 
         new_element2.text = new_element2.text.strip
         doc_element.add new_element2
 
-        read_node(x, element, new_element2, new_indent)        
-        indent_after(element, x, doc_element, previous_indent) if @indent == true
+        read_node(x, element, new_element2, new_indent, i)        
+        indent_after(element, x, doc_element, previous_indent, i) if @indent == true
 
       else
 
         unless doc_element.children.length > 0
-          indent_before(element, x, doc_element, indent) if @indent == true
+          indent_before(element, x, doc_element, indent, i) if @indent == true
         end
         
         val = @indent == true ? '  ' + x.to_s : x.to_s        
         doc_element.add val
 
         if @indent == true then
-          indent_after(element, x, doc_element, previous_indent)
+          indent_after(element, x, doc_element, previous_indent, i)
         end
 
       end
     end    
   end
   
-  def xsl_text(element, x, doc_element, indent)
+  def xsl_text(element, x, doc_element, indent, i)
     val = @indent == true ? padding(doc_element, indent, x) : ''
     val += x.text
     doc_element.add_element val
   end
   
-  def xsl_value_of(element, x, doc_element, indent)
+  def xsl_value_of(element, x, doc_element, indent, i)
     field = x.attributes[:select]
     o = field == '.' ? element.text : element.text(field)   
     doc_element.add_element o.to_s
