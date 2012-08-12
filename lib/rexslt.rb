@@ -32,9 +32,10 @@ end
 
 class Rexslt
 
-  def initialize(xsl, xml)    
+  def initialize(xsl, xml, params={})    
     super()
-    xslt_transform *[xsl, xml].map{|x| RXFHelper.read(x).first}
+    custom_params = params.inject({}){|r,x| r.merge(Hash[x[0].to_s,x[1]])}    
+    xslt_transform(*[xsl, xml].map{|x| RXFHelper.read(x).first}, custom_params)
   end
   
   def to_s(options={}) 
@@ -178,7 +179,8 @@ class Rexslt
 
     indent_before(element, x, doc_element, indent + 1, i) if @indent == true
     name = x.attributes[:name]
-    new_element = Rexle::Element.new(name).add_text(x.text)
+
+    new_element = Rexle::Element.new(name).add_text(x.text.strip)
     doc_element.add new_element
     read_node(x, element, new_element, indent, i)
     indent_after(element, x, doc_element, indent, i) if @indent == true
@@ -219,11 +221,18 @@ class Rexslt
   def xsl_if(element, x, doc_element, indent, i=0)
     
     condition = x.attributes[:test].gsub('position()',i.to_s).gsub('&lt;','<').gsub('&gt;','>')
+
     result  = eval(condition)
-    
+    #jr130712 result = element.element condition
+
     if result then
-      read_node(x, element, doc_element, indent)
+      x.children.each do |childx|
+        read_node element, childx,  doc_element, indent, i
+      end
     end
+    #jr100712if result then
+    #jr100712  read_node(x, element, doc_element, indent)
+    #jr100712end
   end
 
   def indent_before(element, x, doc_element, indent, i)
@@ -340,12 +349,21 @@ class Rexslt
   end
   
   def xsl_value_of(element, x, doc_element, indent, i)
+    #@param = {'view' => 'eee'}
     field = x.attributes[:select]
-    o = field == '.' ? element.text : element.text(field)   
+    o = case field
+      when '.'
+        element.text
+      when /^\$/
+        @param[field[/^\$(.*)/,1]]
+    else
+      element.text(field)           
+    end
+    #o = field == '.' ? element.text : element.text(field)   
     doc_element.add_element o.to_s
   end  
 
-  def xslt_transform(xsl, xml)
+  def xslt_transform(xsl, xml, custom_params={})
    
     doc_xml = Rexle.new xml
     @doc_xsl = Rexle.new xsl
@@ -373,6 +391,12 @@ class Rexslt
 
     @indent = (h and h[:indent] == 'yes') ? true : false
 
+    params = @doc_xsl.root.xpath("xsl:param").map{|x| [x.attributes[:name], x.text]}
+    @param = Hash[params].merge(custom_params) if params
+
+    # search for params
+    
+    
     # fetch the templates
     #puts "Rexle:Version: " + Rexle.version
     
