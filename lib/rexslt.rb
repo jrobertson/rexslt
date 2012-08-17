@@ -110,9 +110,10 @@ class Rexslt
           read_node template, child_node, doc_element, indent, i+1
         end
       else
-        matched_node.each_with_index do |child_node,i|      
+        r = matched_node.each_with_index do |child_node,i|      
           read_node template, child_node, doc_element, indent, i+1
         end        
+        return r
       end
     end
 
@@ -168,9 +169,11 @@ class Rexslt
   end
   
   def xsl_copy_of(element, x, doc_element, indent, i)
-
+    indent = 1 unless indent
     indent_element(element, x, doc_element, indent, indent - 1) do
-      doc_element.add element 
+      field = x.attributes[:select]
+      child = element.element(field)
+      doc_element.add child
     end
 
   end
@@ -179,6 +182,10 @@ class Rexslt
 
     indent_before(element, x, doc_element, indent + 1, i) if @indent == true
     name = x.attributes[:name]
+    variable = name[/^\{(.*)\}$/,1] 
+    if variable then
+      name = element.element("name()")
+    end
 
     new_element = Rexle::Element.new(name).add_text(x.text.strip)
     doc_element.add new_element
@@ -189,7 +196,7 @@ class Rexslt
   def xsl_for_each(element, x, doc_element, indent, i)
     
     xpath = x.attributes[:select]
-    nodes = element.match xpath
+    nodes = element.xpath xpath
     
     # check for sort
     sort_node = x.element 'xsl:sort'
@@ -199,18 +206,21 @@ class Rexslt
       sort_field = sort_node.attributes[:select]
       order = sort_node.attributes[:order]
       sort_node.parent.delete sort_node
-      
-      nodes = nodes.sort_by do |node|
 
-        r = node.element sort_field
-        if r.is_a? Rexle::Element then
-          r.text
-        else
-          # it's a string
-          r
+      if sort_field then
+        nodes = nodes.sort_by do |node|
+
+          r = node.element sort_field
+
+          if r.is_a? Rexle::Element then
+            r.text
+          else
+            # it's a string
+            r
+          end
         end
-      end
 
+      end
       nodes.reverse! if order.downcase == 'descending'
     end
      
@@ -221,18 +231,13 @@ class Rexslt
   def xsl_if(element, x, doc_element, indent, i=0)
     
     condition = x.attributes[:test].gsub('position()',i.to_s).gsub('&lt;','<').gsub('&gt;','>')
-
-    result  = eval(condition)
-    #jr130712 result = element.element condition
+    result = element.element condition
 
     if result then
-      x.children.each do |childx|
-        read_node element, childx,  doc_element, indent, i
-      end
+
+      read_node x.children, x,  doc_element, indent, i
     end
-    #jr100712if result then
-    #jr100712  read_node(x, element, doc_element, indent)
-    #jr100712end
+
   end
 
   def indent_before(element, x, doc_element, indent, i)
@@ -292,6 +297,9 @@ class Rexslt
     method_name = x.name.gsub(/[:-]/,'_').to_sym
 
     if @xsl_methods.include? method_name then
+      if method_name == :'xsl_apply_templates' then
+        #doc_element = doc_element.elements.last
+      end
       method(method_name).call(element, x, doc_element, indent, i)
     else
       
@@ -343,7 +351,7 @@ class Rexslt
   end
   
   def xsl_text(element, x, doc_element, indent, i)
-    val = @indent == true ? padding(doc_element, indent, x) : ''
+    val = @indent == true ? padding(doc_element, indent, x) : ''    
     val += x.text
     doc_element.add_element val
   end
@@ -393,7 +401,6 @@ class Rexslt
 
     params = @doc_xsl.root.xpath("xsl:param").map{|x| [x.attributes[:name], x.text]}
     @param = Hash[params].merge(custom_params) if params
-
     # search for params
     
     
