@@ -95,7 +95,7 @@ class Rexslt
           r = x.element(sort_field); 
 
           if r.respond_to?(:text) then 
-            orderx == 'ascending' ? r.text : -r.text
+            orderx == 'ascending' ? r.value : -r.value
           else
             
             if orderx == 'ascending' then
@@ -140,13 +140,11 @@ class Rexslt
   def xsl_attribute(element, x, doc_element, indent, i)
     
     name = x.attributes[:name]
-    value = x.text
+    value = x.value
     doc_element.add_attribute name, value
   end
 
   def xsl_choose(element, x, doc_element, indent, i)
-
-    #get the when clause    
 
     r = x.xpath("xsl:when").map do |xsl_node|
 
@@ -187,7 +185,7 @@ class Rexslt
       name = element.element("name()")
     end
 
-    new_element = Rexle::Element.new(name).add_text(x.text.strip)
+    new_element = Rexle::Element.new(name).add_text(x.value.strip)
     doc_element.add new_element
     read_node(x, element, new_element, indent, i)
     indent_after(element, x, doc_element, indent, i) if @indent == true
@@ -204,7 +202,7 @@ class Rexslt
     if sort_node then
 
       sort_field = sort_node.attributes[:select]
-      order = sort_node.attributes[:order]
+      raw_order = sort_node.attributes[:order]
       sort_node.parent.delete sort_node
 
       if sort_field then
@@ -213,7 +211,7 @@ class Rexslt
           r = node.element sort_field
 
           if r.is_a? Rexle::Element then
-            r.text
+            r.value
           else
             # it's a string
             r
@@ -221,6 +219,9 @@ class Rexslt
         end
 
       end
+      
+      field = raw_order[/^\{\$(.*)\}/,1]
+      order =  field ?  @param[field] : raw_order
       nodes.reverse! if order.downcase == 'descending'
     end
      
@@ -317,7 +318,7 @@ class Rexslt
           if v[/{/] then
 
             v.gsub!(/(\{[^\}]+\})/) do |x2|
-              element.text(x2[/\{([^\}]+)\}/,1]).clone
+              element.value(x2[/\{([^\}]+)\}/,1]).clone
             end
 
           end  
@@ -325,9 +326,7 @@ class Rexslt
 
         indent_before(element, x, doc_element, new_indent, i) if @indent == true
 
-        #jr070412 new_element.text = new_element.text.strip if @indent == false
-
-        new_element2.text = new_element2.text.strip
+        new_element2.value = new_element2.value.strip
         doc_element.add new_element2
 
         read_node(x, element, new_element2, new_indent, i)        
@@ -352,22 +351,22 @@ class Rexslt
   
   def xsl_text(element, x, doc_element, indent, i)
     val = @indent == true ? padding(doc_element, indent, x) : ''    
-    val += x.text
+    val += x.value
     doc_element.add_element val
   end
   
   def xsl_value_of(element, x, doc_element, indent, i)
-    #@param = {'view' => 'eee'}
+
     field = x.attributes[:select]
     o = case field
       when '.'
-        element.text
+        element.value
       when /^\$/
         @param[field[/^\$(.*)/,1]]
     else
-      element.text(field)           
+      element.value(field)           
     end
-    #o = field == '.' ? element.text : element.text(field)   
+
     doc_element.add_element o.to_s
   end  
 
@@ -389,7 +388,7 @@ class Rexslt
       elements = strip_space.value
       elements.split.each do |element|
         nodes = doc_xml.root.xpath "//" + element + "[text()]"
-        a = nodes.select {|x| x.text.to_s.strip.empty?}
+        a = nodes.select {|x| x.value.to_s.strip.empty?}
         a.each {|node| node.parent.delete node}
       end      
     end
@@ -399,7 +398,7 @@ class Rexslt
 
     @indent = (h and h[:indent] == 'yes') ? true : false
 
-    params = @doc_xsl.root.xpath("xsl:param").map{|x| [x.attributes[:name], x.text]}
+    params = @doc_xsl.root.xpath("xsl:param").map{|x| [x.attributes[:name], x.value]}
     @param = Hash[params].merge(custom_params) if params
     # search for params
     
@@ -412,14 +411,8 @@ class Rexslt
     end
 
     # using the 1st template    
-    xpath = String.new @templates.to_a[0][0] 
-    
-    if doc_xml.root.name == xpath then
-      read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent) 
-    else
-      # use this template
-      read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent) 
-    end
+    xpath = String.new @templates.to_a[0][0]     
+    read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent) 
     
   end
 

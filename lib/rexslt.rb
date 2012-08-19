@@ -318,7 +318,7 @@ class Rexslt
           if v[/{/] then
 
             v.gsub!(/(\{[^\}]+\})/) do |x2|
-              element.value(x2[/\{([^\}]+)\}/,1]).clone
+              element.text(x2[/\{([^\}]+)\}/,1]).clone
             end
 
           end  
@@ -364,7 +364,7 @@ class Rexslt
       when /^\$/
         @param[field[/^\$(.*)/,1]]
     else
-      element.value(field)           
+      element.text(field)           
     end
 
     doc_element.add_element o.to_s
