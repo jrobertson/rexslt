@@ -186,7 +186,7 @@ class Rexslt
     if variable then
       name = element.element("name()")
     end
-    #puts 'x.text : '  + x.text.inspect
+
     new_element = Rexle::Element.new(name).add_text(x.text.strip)
     doc_element.add new_element
     read_node(x, element, new_element, indent, i)
@@ -231,18 +231,13 @@ class Rexslt
   def xsl_if(element, x, doc_element, indent, i=0)
     
     condition = x.attributes[:test].gsub('position()',i.to_s).gsub('&lt;','<').gsub('&gt;','>')
-
-    result  = eval(condition)
-    #jr130712 result = element.element condition
+    result = element.element condition
 
     if result then
-      x.children.each do |childx|
-        read_node element, childx,  doc_element, indent, i
-      end
+
+      read_node x.children, x,  doc_element, indent, i
     end
-    #jr100712if result then
-    #jr100712  read_node(x, element, doc_element, indent)
-    #jr100712end
+
   end
 
   def indent_before(element, x, doc_element, indent, i)
