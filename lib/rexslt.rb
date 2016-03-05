@@ -47,6 +47,23 @@ class Rexslt
   alias to_xml to_s
 
   private
+  
+  def filter_out_spaces(e)
+
+    e.children.each do |x|
+
+      if x.is_a? String and e.name != 'xsl:text' then
+
+        x.gsub!(/\n/,'')
+        x.gsub!(/ +/,'')
+
+      elsif x.is_a? Rexle::Element and x.children.length > 0 then
+        filter_out_spaces x
+      end
+      
+    end
+  end
+  
 
   def xsl_apply_templates(element, x, doc_element, indent, i)
 
@@ -298,13 +315,16 @@ class Rexslt
   #
   def read_raw_text(element, x, doc_element, raw_indent, i)
 
+
     #val = @indent == true ? padding(doc_element, raw_indent, x) : ''
     if x.to_s.strip.length > 0 then
+
       val = x.to_s #
-      #jr040316 doc_element.add_element val
+      doc_element.add_element val
     end
 
-    doc_element.add_text x if x.is_a? String
+    #doc_element.add_text x if x.is_a? String
+    #puts '300 doc_element: '  + doc_element.inspect
 
   end
   
@@ -331,7 +351,7 @@ class Rexslt
         new_element = x.clone
 
         #jr030316 new_element.text = ''
-        new_element.text = x.text
+        #new_element.text = x.text
 
         new_element.attributes.each do |k,v|
           
@@ -371,9 +391,11 @@ class Rexslt
   end
   
   def xsl_text(element, x, doc_element, indent, i)
+
     val = @indent == true ? padding(doc_element, indent, x) : ''    
-    val += x.value
+    val += x.value.to_s
     doc_element.add_element val
+    
   end
   
   def xsl_value_of(element, x, doc_element, indent, i)
@@ -401,8 +423,10 @@ class Rexslt
   def xslt_transform(raw_xsl, xml, custom_params={})
    
     doc_xml = Rexle.new xml
-    @doc_xsl = Rexle.new raw_xsl.gsub(/ +/,' ').gsub(/\n/,'')\
-                                                 .gsub(/> /,'>').gsub(/ </,'<')
+  
+    @doc_xsl = Rexle.new raw_xsl
+    
+    filter_out_spaces @doc_xsl.root
 
     @doc = Rexle.new '<root></root>'
     indent = 0
