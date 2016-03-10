@@ -1,11 +1,11 @@
 Gem::Specification.new do |s|
   s.name = 'rexslt'
-  s.version = '0.4.4'
+  s.version = '0.5.0'
   s.summary = 'Rexslt is an XSLT processor written purely in Ruby'
   s.authors = ['James Robertson']
-  s.files = Dir['lib/**/*.rb']
-  s.add_runtime_dependency('rxfhelper', '~> 0.1', '>=0.1.12')
-  s.add_runtime_dependency('rexle', '~> 1.0', '>=1.0.11') 
+  s.files = Dir['lib/rexslt.rb']
+  s.add_runtime_dependency('rxfhelper', '~> 0.2', '>=0.2.3')
+  s.add_runtime_dependency('rexle', '~> 1.3', '>=1.3.11') 
   s.signing_key = '../privatekeys/rexslt.pem'
   s.cert_chain  = ['gem-public_cert.pem']
   s.license = 'MIT'

@@ -6,32 +6,37 @@ require 'rexle'
 require 'rxfhelper'
 
 
-class Rexle::Element
-  def to_xpath(option=nil)
-    def attribute_scan(node)
-      result = ''
-      attr = %w(id class).detect {|x| node.attributes.has_key? x}
-      if attr then
-        value = node.attribute[attr]
-        result = "[@%s='%s']" % [attr, value]
+module RexPath
+  
+  refine Rexle::Element do
+    
+    def to_xpath(option=nil)
+      def attribute_scan(node)
+        result = ''
+        attr = %w(id class).detect {|x| node.attributes.has_key? x}
+        if attr then
+          value = node.attribute[attr]
+          result = "[@%s='%s']" % [attr, value]
+        end
+        result
       end
-      result
-    end
 
-    def doc_scan(node, option=nil)
-      name = node.name
-      attribute = option == :no_cond ? '' : attribute_scan(node)
-      result = doc_scan(node.parent,option) unless node.root === node.doc_root
-      [result, name.to_s + attribute]
-    end
+      def doc_scan(node, option=nil)
+        name = node.name
+        attribute = option == :no_cond ? '' : attribute_scan(node)
+        result = doc_scan(node.parent,option) unless node.root === node.doc_root
+        [result, name.to_s + attribute]
+      end
 
-    doc_scan(self, option).flatten.compact.join('/')
+      doc_scan(self, option).flatten.compact.join('/')
+    end
   end
 end
 
 
 class Rexslt
-
+  using RexPath
+  
   def initialize(xsl, xml, params={})    
     super()
     custom_params = params.inject({}){|r,x| r.merge(Hash[x[0].to_s,x[1]])}    
@@ -324,7 +329,6 @@ class Rexslt
     end
 
     #doc_element.add_text x if x.is_a? String
-    #puts '300 doc_element: '  + doc_element.inspect
 
   end
   
@@ -422,9 +426,9 @@ class Rexslt
 
   def xslt_transform(raw_xsl, xml, custom_params={})
    
-    doc_xml = Rexle.new xml
-  
-    @doc_xsl = Rexle.new raw_xsl
+    doc_xml = xml.is_a?(Rexle) ? xml : Rexle.new(xml)
+ 
+    @doc_xsl = raw_xsl.is_a?(Rexle) ? raw_xsl : Rexle.new(raw_xsl)
     
     filter_out_spaces @doc_xsl.root
 
