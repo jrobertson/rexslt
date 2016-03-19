@@ -198,8 +198,9 @@ class Rexslt
     #jr251012 indent = 1 unless indent
     #jr251012 indent_element(element, x, doc_element, indent, indent - 1) do
       field = x.attributes[:select]
-      child = element.element(field)
-      doc_element.add child
+      element.xpath(field).each do |child|
+        doc_element.add child
+      end
     #jr251012 end
 
   end
@@ -224,6 +225,7 @@ class Rexslt
   def xsl_for_each(element, x, doc_element, indent, i)
     
     xpath = x.attributes[:select]
+
     nodes = element.xpath xpath
     
     # check for sort
@@ -500,7 +502,9 @@ class Rexslt
     # using the 1st template    
     xpath = String.new @templates.to_a[0][0]
 
-    read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent)
+    out = read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent)
+
+    out
 
   end
 
