@@ -38,8 +38,11 @@ class Rexslt
   using RexPath
   
   def initialize(xsl, xml, params={})    
+    
+
     super()
     custom_params = params.inject({}){|r,x| r.merge(Hash[x[0].to_s,x[1]])}    
+
     xslt_transform(*[xsl, xml].map{|x| RXFHelper.read(x).first}, custom_params)
   end
   
@@ -208,10 +211,12 @@ class Rexslt
   def xsl_element(element, x, doc_element, indent, i)
 
     indent_before(element, x, doc_element, indent + 1, i) if @indent == true
+
     name = x.attributes[:name]
-    variable = name[/^\{(.*)\}$/,1] 
+    variable = name[/^\{(.*)\}$/,1]
+
     if variable then
-      name = element.element("name()")
+      name = element.element(variable)
     end
 
     new_element = Rexle::Element.new(name) # .add_text(x.value.strip)
@@ -381,15 +386,12 @@ class Rexslt
 
         new_element = x.clone
 
-        #jr030316 new_element.text = ''
-        #new_element.text = x.text
-
         new_element.attributes.each do |k,v|
           
           if v[/{/] then
 
             v.gsub!(/(\{[^\}]+\})/) do |x2|
-              element.text(x2[/\{([^\}]+)\}/,1]).clone
+              element.element(x2[/\{([^\}]+)\}/,1]).clone
             end
 
           end  
@@ -456,7 +458,7 @@ class Rexslt
   
 
   def xslt_transform(raw_xsl, xml, custom_params={})
-        
+
     doc_xml = xml.is_a?(Rexle) ? xml : Rexle.new(xml)
  
     @doc_xsl = raw_xsl.is_a?(Rexle) ? raw_xsl : Rexle.new(raw_xsl)
