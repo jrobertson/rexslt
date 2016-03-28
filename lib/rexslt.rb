@@ -301,6 +301,11 @@ class Rexslt
     end
 
   end
+  
+  # Ignores comment tags
+  #
+  def ignore(*args)
+  end
 
   def indent_before(element, x, doc_element, indent, i)
     text = ''
@@ -337,8 +342,12 @@ class Rexslt
   end
   
   def read_node(template_node, element, doc_element, indent, i=0)
-    
-    procs = {"Rexle::Element" => :read_raw_element, "String" => :read_raw_text}        
+        
+    procs = {
+      "Rexle::Element" => :read_raw_element, 
+      "String" => :read_raw_text, 
+      "Rexle::Comment" => :ignore
+    }
 
     template_node.children.each_with_index do |x,j|
 
