@@ -391,7 +391,11 @@ class Rexslt
           if v[/{/] then
 
             v.gsub!(/(\{[^\}]+\})/) do |x2|
-              element.element(x2[/\{([^\}]+)\}/,1]).clone
+              
+              xpath = x2[/\{([^\}]+)\}/,1]
+              text = element.text(xpath)
+              text ? text.clone
+              
             end
 
           end  
