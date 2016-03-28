@@ -394,7 +394,7 @@ class Rexslt
               
               xpath = x2[/\{([^\}]+)\}/,1]
               text = element.text(xpath)
-              text ? text.clone
+              text ? text.clone : ''
               
             end
 
