@@ -350,9 +350,7 @@ class Rexslt
     }
 
     template_node.children.each_with_index do |x,j|
-
       method(procs[x.class.to_s]).call(element, x, doc_element, indent, i)
-
     end
 
   end
@@ -395,12 +393,14 @@ class Rexslt
 
         new_element = x.clone
 
-        new_element.attributes.each do |k,v|
+        new_element.attributes.each do |k,raw_v|
           
+          v = raw_v.is_a?(Array) ? raw_v.join(' ') : raw_v
+                    
           if v[/{/] then
 
             v.gsub!(/(\{[^\}]+\})/) do |x2|
-              
+
               xpath = x2[/\{([^\}]+)\}/,1]
               text = element.text(xpath)
               text ? text.clone : ''
