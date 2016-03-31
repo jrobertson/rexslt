@@ -116,24 +116,22 @@ class Rexslt
       template_xpath, template = raw_template
       
       if sort_field then
+                
         sort_order = lambda do |x| 
+          
           r = x.element(sort_field); 
 
           if r.respond_to?(:text) then 
-            orderx == 'ascending' ? r.value : -r.value
+            r.value
           else
-            
-            if orderx == 'ascending' then
-              data_type == 'text' ? r : r.to_i
-            else
-              data_type == 'text' ? -r : -r.to_i
-            end
+            data_type == 'text' ? r : r.to_i
           end
         end
 
-        matched_node.sort_by(&sort_order).each_with_index do |child_node,i| 
+        a = matched_node.sort_by(&sort_order).each_with_index do |child_node,i| 
           read_node template, child_node, doc_element, indent, i+1
         end
+        a.reverse! if orderx == 'descending'
       else
         r = matched_node.each_with_index do |child_node,i|      
           read_node template, child_node, doc_element, indent, i+1
