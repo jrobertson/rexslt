@@ -441,7 +441,13 @@ class Rexslt
   def xsl_text(element, x, doc_element, indent, i)
 
     val = @indent == true ? padding(doc_element, indent, x) : ''    
-    val += x.value.to_s
+    
+    val += if x.attributes[:"disable-output-escaping"] then
+      x.value.unescape
+    else
+      x.value.to_s
+    end
+    
     doc_element.add_element val
     
   end
