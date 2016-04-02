@@ -41,13 +41,14 @@ class Rexslt
     
 
     super()
+    @options = {}
     custom_params = params.inject({}){|r,x| r.merge(Hash[x[0].to_s,x[1]])}    
 
     xslt_transform(*[xsl, xml].map{|x| RXFHelper.read(x).first}, custom_params)
   end
   
-  def to_s(options={})
-    @doc.to_s(options).sub('<root>','').sub(/<\/root>$/m,'')
+  def to_s(options={})    
+    @doc.to_s(@options.merge(options)).sub('<root>','').sub(/<\/root>$/m,'')
   end
              
   def to_doc(); @doc; end
@@ -503,6 +504,10 @@ class Rexslt
     end
 
     h = @doc_xsl.root.element("xsl:output/attribute::*")
+    
+    if  h and h[:method] and h[:method].downcase == 'html' then
+      @options[:declaration] = :none 
+    end
 
     @indent =  (h and h[:indent] == 'yes') ? true : false
     

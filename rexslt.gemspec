@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'rexslt'
-  s.version = '0.5.9'
+  s.version = '0.5.10'
   s.summary = 'Rexslt is an XSLT processor written purely in Ruby'
   s.authors = ['James Robertson']
   s.files = Dir['lib/rexslt.rb']
