@@ -371,7 +371,7 @@ class Rexslt
   end
   
   def read_raw_element(element, x, doc_element, indent, j)
-        
+
     method_name = x.name.gsub(/[:-]/,'_').to_sym
 
     if @xsl_methods.include? method_name then
@@ -388,26 +388,28 @@ class Rexslt
       la = x.name
       new_indent = indent + 1  if @indent == true
       
+      new_element = x.clone
+
+      new_element.attributes.each do |k,raw_v|
+
+        v = raw_v.is_a?(Array) ? raw_v.join(' ') : raw_v
+                  
+        if v[/{/] then
+
+          v.gsub!(/(\{[^\}]+\})/) do |x2|
+
+            xpath = x2[/\{([^\}]+)\}/,1]
+            text = element.text(xpath)
+            text ? text.clone : ''
+            
+          end
+
+        end  
+      end      
+      
       if x.children.length > 0 then           
 
-        new_element = x.clone
 
-        new_element.attributes.each do |k,raw_v|
-          
-          v = raw_v.is_a?(Array) ? raw_v.join(' ') : raw_v
-                    
-          if v[/{/] then
-
-            v.gsub!(/(\{[^\}]+\})/) do |x2|
-
-              xpath = x2[/\{([^\}]+)\}/,1]
-              text = element.text(xpath)
-              text ? text.clone : ''
-              
-            end
-
-          end  
-        end
 
         indent_before(element, x, doc_element, new_indent, j) if @indent == true
              
