@@ -162,10 +162,12 @@ class Rexslt
   end
 
   def xsl_attribute(element, x, doc_element, indent, i)
-    
+
     name = x.attributes[:name]
     value = x.value
-    doc_element.add_attribute name, value
+
+    value = value_of(x.element('xsl:value-of'), element) unless value
+    doc_element.add_attribute(name, value)
   end
 
   def xsl_choose(element, x, doc_element, indent, i)
@@ -437,6 +439,22 @@ class Rexslt
     
   end
   
+  def value_of(x, element)
+    
+    field = x.attributes[:select]
+
+    o = case field
+      when '.'
+        element.value
+      when /^\$/
+        @param[field[/^\$(.*)/,1]]
+    else
+      ee = element.text(field) 
+      ee
+    end
+    
+  end
+  
   def xsl_output()
 
   end
@@ -457,21 +475,11 @@ class Rexslt
   
   def xsl_value_of(element, x, doc_element, indent, i)
     
-    field = x.attributes[:select]
-
-    o = case field
-      when '.'
-        element.value
-      when /^\$/
-        @param[field[/^\$(.*)/,1]]
-    else
-      ee = element.text(field) 
-      ee
-    end
+    s = value_of(x, element)
 
     #jr030316 doc_element.add_element o.to_s #unless o.to_s.empty?
 
-    doc_element.add_text  o
+    doc_element.add_text  s
     
     doc_element
   end
