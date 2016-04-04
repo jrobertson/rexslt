@@ -47,7 +47,7 @@ class Rexslt
     xslt_transform(*[xsl, xml].map{|x| RXFHelper.read(x).first}, custom_params)
   end
   
-  def to_s(options={})    
+  def to_s(options={})
     @doc.to_s(@options.merge(options)).sub('<root>','').sub(/<\/root>$/m,'')
   end
              
@@ -389,8 +389,9 @@ class Rexslt
       previous_indent = indent      
       la = x.name
       new_indent = indent + 1  if @indent == true
-      
+
       new_element = x.clone
+      #doc_element.add new_element  
 
       new_element.attributes.each do |k,raw_v|
 
