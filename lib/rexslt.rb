@@ -39,6 +39,10 @@ class Rexslt
   
   def initialize(xsl, xml, params={})    
     
+    ## debugging variables
+    
+    @rn = 0
+    @rre = 0
 
     super()
     @options = {}
@@ -221,8 +225,9 @@ class Rexslt
     end
 
     new_element = Rexle::Element.new(name) # .add_text(x.value.strip)
+    #jr060416 doc_element.text = element.text if element.text
+    new_element.text = element.text if element.text
 
-    doc_element.text = element.text if element.text
     read_node(x, element, new_element, indent, i)
     doc_element.add new_element    
     indent_after(element, x, doc_element, indent) if @indent == true
@@ -342,6 +347,12 @@ class Rexslt
     x.to_s.strip.length > 0 ? '  ' * indent : ''        
   end
   
+  
+  # Reads an XSL node which is either an XSL element, a string or a comment
+  # template_node: XSL node
+  # element: XML node
+  # doc_element: target document element
+  #
   def read_node(template_node, element, doc_element, indent, i=0)
         
     procs = {
@@ -351,6 +362,8 @@ class Rexslt
     }
 
     template_node.children.each_with_index do |x,j|
+      
+      # x: an XSL element, or a string or a comment
       method(procs[x.class.to_s]).call(element, x, doc_element, indent, i)
     end
 
@@ -359,7 +372,6 @@ class Rexslt
   # element: xml source element, x: xsl element, doc_element: current destination xml element
   #
   def read_raw_text(element, x, doc_element, raw_indent, i)
-
 
     #val = @indent == true ? padding(doc_element, raw_indent, x) : ''
     if x.to_s.strip.length > 0 then
@@ -372,9 +384,13 @@ class Rexslt
 
   end
   
+  # element: xml element
+  # x: xsl element
+  # doc_element: 
+  #
   def read_raw_element(element, x, doc_element, indent, j)
-
-    method_name = x.name.gsub(/[:-]/,'_').to_sym
+    
+    method_name = x.name.gsub(/[:-]/,'_').to_sym    
 
     if @xsl_methods.include? method_name then
 
@@ -391,7 +407,6 @@ class Rexslt
       new_indent = indent + 1  if @indent == true
 
       new_element = x.clone
-      #doc_element.add new_element  
 
       new_element.attributes.each do |k,raw_v|
 
@@ -409,10 +424,8 @@ class Rexslt
 
         end  
       end      
-      
+            
       if x.children.length > 0 then           
-
-
 
         indent_before(element, x, doc_element, new_indent, j) if @indent == true
              
@@ -436,6 +449,7 @@ class Rexslt
         doc_element.add val
 
       end
+            
     end
     
   end
@@ -536,7 +550,6 @@ class Rexslt
 
     # using the 1st template    
     xpath = String.new @templates.to_a[0][0]
-
     out = read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent)
 
     out
