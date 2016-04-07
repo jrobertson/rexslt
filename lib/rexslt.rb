@@ -506,6 +506,7 @@ class Rexslt
  
     @doc_xsl = raw_xsl.is_a?(Rexle) ? raw_xsl : Rexle.new(raw_xsl)
     
+    
     filter_out_spaces @doc_xsl.root
 
     @doc = Rexle.new '<root></root>'
@@ -551,6 +552,23 @@ class Rexslt
     # using the 1st template    
     xpath = String.new @templates.to_a[0][0]
     out = read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent)
+    
+
+    if @doc_xsl.root.element('xsl:output[@method="html"]') then
+      
+      head = @doc.root.element('html/head')
+
+      if head and not head.element('meta[@content]') then
+        
+        h = {
+          :'http-equiv' => "Content-Type", 
+          content: 'text/html; charset=utf-8'
+        }
+        meta_element = Rexle::Element.new('meta', attributes: h)
+        head.add meta_element
+
+      end
+    end    
 
     out
 
