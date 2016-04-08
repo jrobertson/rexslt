@@ -565,7 +565,13 @@ class Rexslt
           content: 'text/html; charset=utf-8'
         }
         meta_element = Rexle::Element.new('meta', attributes: h)
-        head.add meta_element
+        child = head.element('*')
+        
+        if child then
+          child.insert_before meta_element
+        else
+          head.add meta_element
+        end
 
       end
     end    
