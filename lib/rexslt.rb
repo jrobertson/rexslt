@@ -170,7 +170,8 @@ class Rexslt
     name = x.attributes[:name]
     value = x.value
 
-    value = value_of(x.element('xsl:value-of'), element) unless value
+    e = x.element('xsl:value-of')
+    value = value_of(e, element) if e
     doc_element.add_attribute(name, value)
   end
 
