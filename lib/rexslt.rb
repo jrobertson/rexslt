@@ -532,7 +532,8 @@ class Rexslt
 
     h = @doc_xsl.root.element("xsl:output/attribute::*")
     
-    if  h and h[:method] and h[:method].downcase == 'html' then
+    if  h and ((h[:method] and h[:method].downcase == 'html') \
+                                   or h[:'omit-xml-declaration'] == 'yes') then
       @options[:declaration] = :none 
     end
 
