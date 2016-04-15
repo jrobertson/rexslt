@@ -176,7 +176,7 @@ class Rexslt
   end
 
   def xsl_choose(element, x, doc_element, indent, i)
-
+    
     r = x.xpath("xsl:when").map do |xsl_node|
 
       condition = xsl_node.attributes[:test]
@@ -189,15 +189,11 @@ class Rexslt
         false
       end
     end
-
     
     unless r.any? then
-
-      node = x.element 'xsl:otherwise'
-
-      otherwise = node.element("xsl:otherwise")
+      otherwise = x.element("xsl:otherwise")
       if otherwise then
-        read_node(otherwise, element, doc_element, indent) if node
+        read_node(otherwise, element, doc_element, indent)
       end
     end       
 
