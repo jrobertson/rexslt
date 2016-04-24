@@ -6,6 +6,11 @@ require 'rexle'
 require 'rxfhelper'
 
 
+# modifications:
+
+# 24-Apr-2016: An xsl:attribute value can now be rendered using 
+#              an xsl:text element
+
 module RexPath
   
   refine Rexle::Element do
@@ -172,6 +177,12 @@ class Rexslt
 
     e = x.element('xsl:value-of')
     value = value_of(e, element) if e
+
+    av = x.element('xsl:text')
+    if av then
+      value = av.text
+    end
+
     doc_element.add_attribute(name, value)
   end
 
@@ -182,7 +193,7 @@ class Rexslt
       condition = xsl_node.attributes[:test]
       node = element.element condition
       
-      if node and node == true      
+      if node  
         read_node(xsl_node, element, doc_element, indent, i)      
         true
       else
@@ -265,39 +276,20 @@ class Rexslt
       nodes.reverse! if order.downcase == 'descending'
     end
      
-    nodes.each {|node| read_node(x, node, doc_element, indent, i)}
+    nodes.each.with_index {|node, j| read_node(x, node, doc_element, indent, j+1)}
     
   end
     
   def xsl_if(element, x, doc_element, indent, i=0)
 
-    condition = x.attributes[:test].clone
-    
-    cond = condition.slice!(/position\(\) &lt; \d+/)
-    
-    result = if cond then
-      
-      cond.sub!(/position\(\)/, i.to_s)
-      cond.sub!(/&lt;/,'<')
-      cond.sub!(/&gt;/,'>')
+    cond = x.attributes[:test].clone
+          
+    cond.sub!(/position\(\)/, i.to_s)
+    cond.sub!(/&lt;/,'<')
+    cond.sub!(/&gt;/,'>')
+    cond.sub!(/\bmod\b/,'%')
 
-      b = eval(cond)
-
-      if b then
-
-        if condition.length > 0 then
-          element.element condition   
-        else
-          true
-        end
-      else
-        false
-      end
-            
-    else
-
-      element.element condition
-    end
+    result = element.element cond    
 
     if result then
       read_node x, element,  doc_element, indent, i
