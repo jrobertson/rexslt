@@ -8,7 +8,9 @@ require 'rxfhelper'
 
 # modifications:
 
-# 24-Apr-2016: An xsl:attribute value can now be rendered using 
+# 24-Apr-2016: The position() function is now supported within an 
+#              xsl:value-of select attribute
+#              An xsl:attribute value can now be rendered using 
 #              an xsl:text element
 
 module RexPath
@@ -176,7 +178,7 @@ class Rexslt
     value = x.value
 
     e = x.element('xsl:value-of')
-    value = value_of(e, element) if e
+    value = value_of(e, element, i) if e
 
     av = x.element('xsl:text')
     if av then
@@ -443,7 +445,7 @@ class Rexslt
     
   end
   
-  def value_of(x, element)
+  def value_of(x, element, i)
     
     field = x.attributes[:select]
 
@@ -452,6 +454,8 @@ class Rexslt
         element.value
       when /^\$/
         @param[field[/^\$(.*)/,1]]
+      when 'position()'
+        i.to_s
     else
       ee = element.text(field) 
       ee
@@ -479,13 +483,10 @@ class Rexslt
   
   def xsl_value_of(element, x, doc_element, indent, i)
     
-    s = value_of(x, element)
-
-    #jr030316 doc_element.add_element o.to_s #unless o.to_s.empty?
-
+    s = value_of(x, element,i)
     doc_element.add_text  s
-    
     doc_element
+    
   end
   
 
