@@ -7,7 +7,8 @@ require 'rxfhelper'
 
 
 # modifications:
-
+# 30-Apr-2016: bug fix: This class can now be executed within an 
+#                       eval statement which runs within another class
 # 24-Apr-2016: The position() function is now supported within an 
 #              xsl:value-of select attribute
 #              An xsl:attribute value can now be rendered using 
@@ -54,7 +55,6 @@ class Rexslt
     super()
     @options = {}
     custom_params = params.inject({}){|r,x| r.merge(Hash[x[0].to_s,x[1]])}    
-
     xslt_transform(*[xsl, xml].map{|x| RXFHelper.read(x).first}, custom_params)
   end
   
@@ -224,7 +224,7 @@ class Rexslt
   end
   
   def xsl_element(element, x, doc_element, indent, i)
-
+    
     indent_before(element, x, doc_element, indent + 1, i) if @indent == true
 
     name = x.attributes[:name]
@@ -235,7 +235,6 @@ class Rexslt
     end
 
     new_element = Rexle::Element.new(name) # .add_text(x.value.strip)
-    #jr060416 doc_element.text = element.text if element.text
     new_element.text = element.text if element.text
 
     read_node(x, element, new_element, indent, i)
@@ -345,17 +344,17 @@ class Rexslt
   # doc_element: target document element
   #
   def read_node(template_node, element, doc_element, indent, i=0)
-        
-    procs = {
-      "Rexle::Element" => :read_raw_element, 
-      "String" => :read_raw_text, 
-      "Rexle::Comment" => :ignore
-    }
 
     template_node.children.each_with_index do |x,j|
-      
-      # x: an XSL element, or a string or a comment
-      method(procs[x.class.to_s]).call(element, x, doc_element, indent, i)
+
+      name = if x.kind_of? Rexle::Element then :read_raw_element
+      elsif x.is_a? String then :read_raw_text
+      elsif x.class.to_s =~  /Rexle::Comment$/ then :ignore
+      else
+        :ignore
+      end
+
+      method(name).call(element, x, doc_element, indent, i)
     end
 
   end
@@ -535,7 +534,7 @@ class Rexslt
     
     # fetch the templates
     #puts "Rexle:Version: " + Rexle.version
-    
+
     @templates = @doc_xsl.root.xpath('xsl:template').inject({}) do |r,x|
       r.merge(x.attributes[:match] || x.attributes[:select] => x)
     end
@@ -543,7 +542,6 @@ class Rexslt
     # using the 1st template    
     xpath = String.new @templates.to_a[0][0]
     out = read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent)
-    
 
     if @doc_xsl.root.element('xsl:output[@method="html"]') then
       
