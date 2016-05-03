@@ -7,6 +7,9 @@ require 'rxfhelper'
 
 
 # modifications:
+
+# 03-May-2016: A returned HTML document will no longer include an 
+#              XML declaration by default
 # 30-Apr-2016: bug fix: This class can now be executed within an 
 #                       eval statement which runs within another class
 # 24-Apr-2016: The position() function is now supported within an 
@@ -564,6 +567,16 @@ class Rexslt
 
       end
     end    
+    
+    
+    if @doc.root.element('html') then
+      
+        if h and h[:'omit-xml-declaration'] != 'yes'  then
+        else
+          @options[:declaration] = :none
+        end
+        
+    end
 
     out
 
