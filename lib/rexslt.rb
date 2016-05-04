@@ -8,6 +8,10 @@ require 'rxfhelper'
 
 # modifications:
 
+# 04-May-2016: bug fix: disabled the method which strips out all new 
+#              line spaces, and replaced it with a statement in the 
+#              read_raw_text() method which strips out space before and 
+#              after the text
 # 03-May-2016: A returned HTML document will no longer include an 
 #              XML declaration by default
 # 30-Apr-2016: bug fix: This class can now be executed within an 
@@ -227,7 +231,7 @@ class Rexslt
   end
   
   def xsl_element(element, x, doc_element, indent, i)
-    
+
     indent_before(element, x, doc_element, indent + 1, i) if @indent == true
 
     name = x.attributes[:name]
@@ -369,7 +373,7 @@ class Rexslt
     #val = @indent == true ? padding(doc_element, raw_indent, x) : ''
     if x.to_s.strip.length > 0 then
 
-      val = x.to_s #
+      val = x.to_s.strip #
       doc_element.add_element val
     end
 
@@ -401,8 +405,8 @@ class Rexslt
 
       new_element = x.clone
 
-      new_element.attributes.each do |k,raw_v|
-
+      new_element.attributes.each do |k,raw_v|        
+        
         v = raw_v.is_a?(Array) ? raw_v.join(' ') : raw_v
                   
         if v[/{/] then
@@ -499,7 +503,7 @@ class Rexslt
     @doc_xsl = raw_xsl.is_a?(Rexle) ? raw_xsl : Rexle.new(raw_xsl)
     
     
-    filter_out_spaces @doc_xsl.root
+    #jr2040516 filter_out_spaces @doc_xsl.root
 
     @doc = Rexle.new '<root></root>'
     indent = 0
@@ -545,8 +549,19 @@ class Rexslt
     # using the 1st template    
     xpath = String.new @templates.to_a[0][0]
     out = read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent)
+    
+    html = @doc.root.element('html')
+    
+    if html then
+      
+        if h and h[:'omit-xml-declaration'] != 'yes'  then
+        else
+          @options[:declaration] = :none
+        end
+        
+    end    
 
-    if @doc_xsl.root.element('xsl:output[@method="html"]') then
+    if @doc_xsl.root.element('xsl:output[@method="html"]') or html then
       
       head = @doc.root.element('html/head')
 
@@ -569,14 +584,7 @@ class Rexslt
     end    
     
     
-    if @doc.root.element('html') then
-      
-        if h and h[:'omit-xml-declaration'] != 'yes'  then
-        else
-          @options[:declaration] = :none
-        end
-        
-    end
+
 
     out
 
