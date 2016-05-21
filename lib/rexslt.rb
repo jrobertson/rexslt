@@ -8,6 +8,9 @@ require 'rxfhelper'
 
 # modifications:
 
+# 21-May-2016: bug fix: An update to the Rexle gem regarding the new 
+#              Rexle::Element::Attribute datatype caused the sort_by code 
+#              to break. This has now been rectified.
 # 04-May-2016: bug fix: disabled the method which strips out all new 
 #              line spaces, and replaced it with a statement in the 
 #              read_raw_text() method which strips out space before and 
@@ -140,7 +143,7 @@ class Rexslt
           
           r = x.element(sort_field); 
 
-          if r.respond_to?(:text) then 
+          if r.respond_to?(:value) then 
             r.value
           else
             data_type == 'text' ? r : r.to_i
@@ -265,11 +268,12 @@ class Rexslt
       sort_node.parent.delete sort_node
 
       if sort_field then
+
         nodes = nodes.sort_by do |node|
 
           r = node.element sort_field
 
-          if r.is_a? Rexle::Element then
+          if r.is_a? Rexle::Element or r.is_a? Rexle::Element::Attribute then
             r.value
           else
             # it's a string
