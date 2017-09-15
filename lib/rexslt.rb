@@ -8,6 +8,7 @@ require 'rxfhelper'
 
 # modifications:
 
+# 15-Sep-2017: feature: Implemented xsl_call_template
 # 21-May-2016: bug fix: An update to the Rexle gem regarding the new 
 #              Rexle::Element::Attribute datatype caused the sort_by code 
 #              to break. This has now been rectified.
@@ -59,12 +60,16 @@ class Rexslt
     
     ## debugging variables
     
+    @log = Logger.new 'rxsl.log','daily'
     @rn = 0
     @rre = 0
 
     super()
+    @log.debug 'before options'
     @options = {}
     custom_params = params.inject({}){|r,x| r.merge(Hash[x[0].to_s,x[1]])}    
+    @log.debug 'before xsl_transform'
+
     xslt_transform(*[xsl, xml].map{|x| RXFHelper.read(x).first}, custom_params)
   end
   
@@ -117,7 +122,7 @@ class Rexslt
     end
 
     raw_template = @templates.to_a.find do |raw_item, template|
-
+      next unless raw_item
       item = raw_item.split('/')
 
       if match? keypath, item then
@@ -197,16 +202,26 @@ class Rexslt
 
     doc_element.add_attribute(name, value)
   end
+  
+  def xsl_call_template(element, x, doc_element, indent, i)
+    
+    name = x.attributes[:name]
+    template = @doc_xsl.root.element("xsl:template[@name='#{name}']")
+    
+    read_node template, element, doc_element, indent, i
+  end
 
   def xsl_choose(element, x, doc_element, indent, i)
     
+
     r = x.xpath("xsl:when").map do |xsl_node|
 
       condition = xsl_node.attributes[:test]
+
       node = element.element condition
-      
+
       if node  
-        read_node(xsl_node, element, doc_element, indent, i)      
+        read_raw_element(element, xsl_node.elements.first,  doc_element, indent, i)      
         true
       else
         false
@@ -234,7 +249,7 @@ class Rexslt
   end
   
   def xsl_element(element, x, doc_element, indent, i)
-
+    
     indent_before(element, x, doc_element, indent + 1, i) if @indent == true
 
     name = x.attributes[:name]
@@ -355,7 +370,7 @@ class Rexslt
   # doc_element: target document element
   #
   def read_node(template_node, element, doc_element, indent, i=0)
-
+    
     template_node.children.each_with_index do |x,j|
 
       name = if x.kind_of? Rexle::Element then :read_raw_element
@@ -392,9 +407,9 @@ class Rexslt
   def read_raw_element(element, x, doc_element, indent, j)
     
     method_name = x.name.gsub(/[:-]/,'_').to_sym    
-
+    
     if @xsl_methods.include? method_name then
-
+        
       if method_name == :'xsl_apply_templates' then
         #doc_element = doc_element.elements.last
       end
@@ -502,19 +517,22 @@ class Rexslt
 
   def xslt_transform(raw_xsl, xml, custom_params={})
 
+    @log.debug 'inside xslt_transform'
+
     doc_xml = xml.is_a?(Rexle) ? xml : Rexle.new(xml)
- 
+
     @doc_xsl = raw_xsl.is_a?(Rexle) ? raw_xsl : Rexle.new(raw_xsl)
-    
+    @log.debug 'after @doc_xsl'
     
     #jr2040516 filter_out_spaces @doc_xsl.root
 
     @doc = Rexle.new '<root></root>'
+
     indent = 0
 
     previous_indent = 0
     @xsl_methods = %i(apply_templates value_of element if choose when copy_of
-                      attribute for_each text output).map do |x| 
+                      attribute for_each text output call_template).map do |x| 
                         ('xsl_' + x.to_s).to_sym
                       end
     
@@ -530,6 +548,7 @@ class Rexslt
     end
 
     h = @doc_xsl.root.element("xsl:output/attribute::*")
+    @log.debug 'after h'
     
     if  h and ((h[:method] and h[:method].downcase == 'html') \
                                    or h[:'omit-xml-declaration'] == 'yes') then
@@ -586,10 +605,7 @@ class Rexslt
 
       end
     end    
-    
-    
-
-
+        
     out
 
   end
