@@ -8,6 +8,8 @@ require 'rxfhelper'
 
 # modifications:
 
+# 16-Sep-2017: improvement: all predicates in an xsl:choose 
+#                           condition now must be true
 # 15-Sep-2017: feature: Implemented xsl_call_template
 # 21-May-2016: bug fix: An update to the Rexle gem regarding the new 
 #              Rexle::Element::Attribute datatype caused the sort_by code 
@@ -218,9 +220,7 @@ class Rexslt
 
       condition = xsl_node.attributes[:test]
 
-      node = element.element condition
-
-      if node  
+      if element.xpath(condition).all? then  
         read_raw_element(element, xsl_node.elements.first,  doc_element, indent, i)      
         true
       else
