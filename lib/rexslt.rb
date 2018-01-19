@@ -8,6 +8,7 @@ require 'rxfhelper'
 
 # modifications:
 
+# 19-Jan-2018: feature: Implemented Rexslt#to_xml which returns pretty XML
 # 16-Sep-2017: improvement: all predicates in an xsl:choose 
 #                           condition now must be true
 # 15-Sep-2017: feature: Implemented xsl_call_template
@@ -76,12 +77,14 @@ class Rexslt
   end
   
   def to_s(options={})
-    @doc.to_s(@options.merge(options)).sub('<root>','').sub(/<\/root>$/m,'')
+    @doc.to_s(@options.merge(options)).sub(/<root>\n/,'').sub(/<\/root>$/m,'')
   end
              
   def to_doc(); @doc; end
     
-  alias to_xml to_s
+  def to_xml()
+    @doc.root.xml(pretty: true).sub(/<root>\n/,'').sub(/<\/root>$/m,'')    
+  end
 
   private
   
