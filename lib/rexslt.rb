@@ -4,6 +4,7 @@
 
 require 'rexle'
 require 'rxfhelper'
+require 'logger'
 
 
 # modifications:
