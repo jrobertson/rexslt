@@ -8,7 +8,9 @@ require 'logger'
 
 
 # modifications:
-
+#
+# 01-Feb-2019: bug fix: new line characters are no longer stripped 
+#                       between XSL elements
 # 19-Jan-2018: feature: Implemented Rexslt#to_xml which returns pretty XML
 # 16-Sep-2017: improvement: all predicates in an xsl:choose 
 #                           condition now must be true
@@ -59,32 +61,35 @@ end
 
 class Rexslt
   using RexPath
+  using ColouredText
   
-  def initialize(xsl, xml, params={})    
+  def initialize(xsl, xml, raw_params={}, debug: false)    
     
     ## debugging variables
     
-    @log = Logger.new 'rxsl.log','daily'
     @rn = 0
     @rre = 0
 
     super()
-    @log.debug 'before options'
+    puts 'before options'.info if @debug
     @options = {}
+    
+    params = raw_params.merge({debug: false})
+    @debug = debug
     custom_params = params.inject({}){|r,x| r.merge(Hash[x[0].to_s,x[1]])}    
-    @log.debug 'before xsl_transform'
+    puts 'before xsl_transform'.info if @debug
 
     xslt_transform(*[xsl, xml].map{|x| RXFHelper.read(x).first}, custom_params)
   end
   
   def to_s(options={})
-    @doc.to_s(@options.merge(options)).sub(/<root>\n/,'').sub(/<\/root>$/m,'')
+    @doc.to_s(@options.merge(options)).sub(/<root4>/,'').sub(/<\/root4>$/m,'').lstrip
   end
              
   def to_doc(); @doc; end
     
   def to_xml()
-    @doc.root.xml(pretty: true).sub(/<root>\n/,'').sub(/<\/root>$/m,'')    
+    @doc.root.xml(pretty: true).sub(/<root3>\n/,'').sub(/<\/root3>$/m,'')    
   end
 
   private
@@ -377,6 +382,7 @@ class Rexslt
     
     template_node.children.each_with_index do |x,j|
 
+      puts ('x: '  + x.inspect).debug if @debug
       name = if x.kind_of? Rexle::Element then :read_raw_element
       elsif x.is_a? String then :read_raw_text
       elsif x.class.to_s =~  /Rexle::Comment$/ then :ignore
@@ -397,10 +403,9 @@ class Rexslt
     if x.to_s.strip.length > 0 then
 
       val = x.to_s.strip #
-      doc_element.add_element val
+      puts ('val: ' + val.inspect).debug if @debug
+      doc_element.add_element x.to_s
     end
-
-    #doc_element.add_text x if x.is_a? String
 
   end
   
@@ -521,16 +526,16 @@ class Rexslt
 
   def xslt_transform(raw_xsl, xml, custom_params={})
 
-    @log.debug 'inside xslt_transform'
+    puts 'inside xslt_transform'.info if @debug
 
     doc_xml = xml.is_a?(Rexle) ? xml : Rexle.new(xml)
 
     @doc_xsl = raw_xsl.is_a?(Rexle) ? raw_xsl : Rexle.new(raw_xsl)
-    @log.debug 'after @doc_xsl'
+    puts 'after @doc_xsl'.info if @debug
     
     #jr2040516 filter_out_spaces @doc_xsl.root
 
-    @doc = Rexle.new '<root></root>'
+    @doc = Rexle.new '<root4></root4>', debug: @debug
 
     indent = 0
 
@@ -552,7 +557,7 @@ class Rexslt
     end
 
     h = @doc_xsl.root.element("xsl:output/attribute::*")
-    @log.debug 'after h'
+    puts 'after h'.info if @debug
     
     if  h and ((h[:method] and h[:method].downcase == 'html') \
                                    or h[:'omit-xml-declaration'] == 'yes') then
@@ -576,6 +581,8 @@ class Rexslt
     # using the 1st template    
     xpath = String.new @templates.to_a[0][0]
     out = read_node(@templates.to_a[0][-1], doc_xml.element(xpath), @doc.root, indent)
+
+    puts ('out: ' + out.inspect).debug if @debug
     
     html = @doc.root.element('html')
     
