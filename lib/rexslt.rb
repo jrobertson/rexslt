@@ -11,6 +11,7 @@ require 'logger'
 #
 # 01-Feb-2019: bug fix: new line characters are no longer stripped 
 #                       between XSL elements
+#              bug fix: An attribute variable value is now returned correctly
 # 19-Jan-2018: feature: Implemented Rexslt#to_xml which returns pretty XML
 # 16-Sep-2017: improvement: all predicates in an xsl:choose 
 #                           condition now must be true
@@ -89,7 +90,7 @@ class Rexslt
   def to_doc(); @doc; end
     
   def to_xml()
-    @doc.root.xml(pretty: true).sub(/<root3>\n/,'').sub(/<\/root3>$/m,'')    
+    @doc.root.xml(pretty: true).sub(/<root4>/,'').sub(/<\/root4>$/m,'')    
   end
 
   private
@@ -245,6 +246,24 @@ class Rexslt
     end       
 
   end
+
+  def xsl_cdata(element, x, doc_element, indent, i)
+    puts ('cdata x: ' + element.inspect) if @debug    
+    
+    new_element = Rexle::CData.new(x.value.to_s)
+
+    read_node(x, element, new_element, indent, i)
+    doc_element.add new_element     
+  end
+  
+  def xsl_comment(element, x, doc_element, indent, i)
+    #puts ('comment x: ' + element.inspect) if @debug    
+    
+    new_element = Rexle::Comment.new(x.value.to_s)
+
+    read_node(x, element, new_element, indent, i)
+    doc_element.add new_element     
+  end
   
   def xsl_copy_of(element, x, doc_element, indent, i)
     #jr251012 indent = 1 unless indent
@@ -264,12 +283,15 @@ class Rexslt
     name = x.attributes[:name]
     variable = name[/^\{(.*)\}$/,1]
 
+    puts 'variable: ' + variable.inspect if @debug
+    
     if variable then
       name = element.element(variable)
     end
 
     new_element = Rexle::Element.new(name) # .add_text(x.value.strip)
-    new_element.text = element.text if element.text
+    puts 'element.text: ' + element.to_s.inspect
+    new_element.text = element.text.to_s.strip
 
     read_node(x, element, new_element, indent, i)
     doc_element.add new_element    
@@ -352,9 +374,11 @@ class Rexslt
   end
 
   def indent_after(element, x, doc_element, prev_indent)
+    
+    puts 'indent? : ' + @indent.inspect if @debug
 
     if @indent == true then          
-      doc_element.add_text "\n" + '  ' * (prev_indent > 0 ? prev_indent - 1 : prev_indent)
+      doc_element.add_text  '  ' * (prev_indent > 0 ? prev_indent - 1 : prev_indent)
     end            
   end
   
@@ -390,7 +414,10 @@ class Rexslt
         :ignore
       end
 
-      method(name).call(element, x, doc_element, indent, i)
+      r2 = method(name).call(element, x, doc_element, indent, i)
+      puts 'r2: ' + r2.inspect if @debug
+      r2
+
     end
 
   end
@@ -436,20 +463,28 @@ class Rexslt
       new_element.attributes.each do |k,raw_v|        
         
         v = raw_v.is_a?(Array) ? raw_v.join(' ') : raw_v
-                  
+        
+        puts 'v: ' + v.inspect if @debug          
+        
         if v[/{/] then
 
           v.gsub!(/(\{[^\}]+\})/) do |x2|
 
             xpath = x2[/\{([^\}]+)\}/,1]
-            text = element.text(xpath)
+            puts 'element.text(xpath): ' + element.text(xpath).inspect if @debug
+            text = element.text(xpath).to_s.strip
+            puts 'text: ' + text.inspect if @debug
             text ? text.clone : ''
             
           end
+          
+          puts '2. v: ' + v.inspect if @debug
 
         end  
       end      
-            
+
+      puts 'x.children.length: ' + x.children.length.inspect if @debug
+      
       if x.children.length > 0 then           
 
         indent_before(element, x, doc_element, new_indent, j) if @indent == true
@@ -468,31 +503,43 @@ class Rexslt
 
       else
 
-        indent_before(element, x, doc_element, new_indent, j) if @indent == true
+        indent_before(element, x, new_element, new_indent, j) if @indent == true
         
         val = @indent == true ? x.to_s : x.to_s        
-        doc_element.add val
+        #jr020219 doc_element.add val
+        doc_element.add new_element
 
       end
-            
+      
     end
+    #new_element
+    #puts 'attributes: ' + new_element.attributes.inspect if @debug
     
   end
   
-  def value_of(x, element, i)
+  def value_of(x, elementx, i)
+    
+    puts 'value_of: ' + elementx.to_s.inspect if @debug
     
     field = x.attributes[:select]
 
     o = case field
       when '.'
-        element.value
+        elementx.value
       when /^\$/
         @param[field[/^\$(.*)/,1]]
       when 'position()'
         i.to_s
     else
-      ee = element.text(field) 
-      ee
+      r = elementx.element(field)
+      if r.is_a? Rexle::Element::Attribute
+        r.value.to_s
+      elsif r.is_a? Rexle::Element
+        r.texts.join
+      else
+        ''
+      end
+
     end
     
   end
@@ -516,7 +563,8 @@ class Rexslt
   end
   
   def xsl_value_of(element, x, doc_element, indent, i)
-    
+  
+    #puts 'xsl_value_of: ' + x.inspect if @debug
     s = value_of(x, element,i)
     doc_element.add_text  s
     doc_element
@@ -530,7 +578,7 @@ class Rexslt
 
     doc_xml = xml.is_a?(Rexle) ? xml : Rexle.new(xml)
 
-    @doc_xsl = raw_xsl.is_a?(Rexle) ? raw_xsl : Rexle.new(raw_xsl)
+    @doc_xsl = raw_xsl.is_a?(Rexle) ? raw_xsl : Rexle.new(raw_xsl.gsub(/(?<=\<\/xsl:text>)[^<]+/,''))
     puts 'after @doc_xsl'.info if @debug
     
     #jr2040516 filter_out_spaces @doc_xsl.root
@@ -541,7 +589,7 @@ class Rexslt
 
     previous_indent = 0
     @xsl_methods = %i(apply_templates value_of element if choose when copy_of
-                      attribute for_each text output call_template).map do |x| 
+                      attribute for_each text output call_template comment cdata).map do |x| 
                         ('xsl_' + x.to_s).to_sym
                       end
     
@@ -557,6 +605,7 @@ class Rexslt
     end
 
     h = @doc_xsl.root.element("xsl:output/attribute::*")
+    puts 'h: ' + h.inspect if @debug
     puts 'after h'.info if @debug
     
     if  h and ((h[:method] and h[:method].downcase == 'html') \
